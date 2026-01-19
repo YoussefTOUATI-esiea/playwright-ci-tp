@@ -11,7 +11,7 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
 
-    # 🆕 Stratégie de matrice pour exécuter les tests en parallèle (sharding)
+    # 🧩 Exécution parallèle via sharding
     strategy:
       matrix:
         shard: [1, 2, 3]        # 3 shards → 3 jobs parallèles
@@ -26,7 +26,7 @@ jobs:
         with:
           node-version: lts/*
 
-      # 🗃️ Cache des node_modules pour accélérer les pipelines
+      # 🗃️ Cache des node_modules
       - name: Cache node modules
         uses: actions/cache@v3
         with:
@@ -52,13 +52,21 @@ jobs:
       - name: Run Playwright tests (Shard ${{ matrix.shard }}/${{ matrix.total-shards }})
         run: npx playwright test --shard=${{ matrix.shard }}/${{ matrix.total-shards }}
 
-  # 🧩 Job de fusion des rapports Playwright
+      # 📤 Upload du rapport de chaque shard
+      - name: Upload shard report
+        uses: actions/upload-artifact@v4
+        with:
+          name: shard-${{ matrix.shard }}-report
+          path: playwright-report/
+          retention-days: 7
+
+  # 🧩 Fusion des rapports Playwright
   merge-reports:
     runs-on: ubuntu-latest
     needs: test   # Attend la fin des 3 shards
 
     steps:
-      # 📥 Récupération du code (nécessaire pour Playwright CLI)
+      # 📥 Récupération du code
       - uses: actions/checkout@v4
 
       # 📦 Installation de Node.js
