@@ -13,8 +13,8 @@ jobs:
     - uses: actions/setup-node@v5
       with:
         node-version: lts/*
-    
-    # NOUVEAU : Cache pour node_modules
+
+        # NOUVEAU : Cache pour node_modules
     - name: Cache node modules
       uses: actions/cache@v3
       with:
@@ -28,18 +28,19 @@ jobs:
         path: ~/.cache/ms-playwright
         key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
 
-    # Installation de Playwright (seulement si cache manquant)
+   
+    - name: Install dependencies
+      run: npm ci
+
+       # Installation de Playwright (seulement si cache manquant)
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
 
 
       
         # Execution des tests Playwright
-
     - name: Run Playwright tests
       run: npx playwright test
-
-      
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
