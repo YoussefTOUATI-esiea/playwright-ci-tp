@@ -1,83 +1,85 @@
 name: Playwright Tests
+
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+
 jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
 
-# NOUVEAU : Configuration de la stratégie de matrice pour le sharding
+    # 🆕 Stratégie de matrice pour exécuter les tests en parallèle (sharding)
     strategy:
       matrix:
-        shard: [1, 2, 3]      # 3 shards = 3 machines en parallèle
-        total-shards: [3]      # Total de 3 shards
-
-
-
+        shard: [1, 2, 3]        # 3 shards → 3 jobs parallèles
+        total-shards: [3]       # Nombre total de shards
 
     steps:
-    - uses: actions/checkout@v5
-    - uses: actions/setup-node@v5
-      with:
-        node-version: lts/*
+      # 📥 Récupération du code
+      - uses: actions/checkout@v5
 
-        # NOUVEAU : Cache pour node_modules
-    - name: Cache node modules
-      uses: actions/cache@v3
-      with:
-        path: node_modules
-        key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+      # 📦 Installation de Node.js (version LTS)
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
 
-    # NOUVEAU : Cache pour les navigateurs Playwright
-    - name: Cache Playwright browsers
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+      # 🗃️ Cache des node_modules pour accélérer les pipelines
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
 
-   
-    - name: Install dependencies
-      run: npm ci
+      # 🗃️ Cache des navigateurs Playwright
+      - name: Cache Playwright browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
 
-       # Installation de Playwright (seulement si cache manquant)
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
+      # 📦 Installation des dépendances
+      - name: Install dependencies
+        run: npm ci
 
+      # 🆕 Installation des navigateurs Playwright (si non présents dans le cache)
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
 
-      
-      # NOUVEAU : Exécution des tests Playwright avec sharding
-    - name: Run Playwright tests (Shard ${{ matrix.shard }}/${{ matrix.total-shards }})
-      run: npx playwright test --shard=${{ matrix.shard }}/${{ matrix.total-shards }}
+      # ▶️ Exécution des tests Playwright shardés
+      - name: Run Playwright tests (Shard ${{ matrix.shard }}/${{ matrix.total-shards }})
+        run: npx playwright test --shard=${{ matrix.shard }}/${{ matrix.total-shards }}
 
-#Upload des rapports par shard
-    merge-reports:
+  # 🧩 Job de fusion des rapports Playwright
+  merge-reports:
     runs-on: ubuntu-latest
-    needs: test   # attend que tous les shards soient terminés
+    needs: test   # Attend la fin des 3 shards
 
     steps:
-    - uses: actions/checkout@v4
+      # 📥 Récupération du code (nécessaire pour Playwright CLI)
+      - uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '18'
+      # 📦 Installation de Node.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-    # Téléchargement des rapports de chaque shard
-    - name: Download shard reports
-      uses: actions/download-artifact@v4
-      with:
-        path: merged-reports
+      # 📥 Téléchargement des rapports générés par chaque shard
+      - name: Download shard reports
+        uses: actions/download-artifact@v4
+        with:
+          path: merged-reports
 
-    # Fusion des rapports Playwright
-    - name: Merge Playwright reports
-      run: |
-        npx playwright merge-reports --reporter html merged-reports/**/playwright-report
+      # 🔗 Fusion des rapports Playwright en un seul rapport HTML
+      - name: Merge Playwright reports
+        run: |
+          npx playwright merge-reports --reporter html merged-reports/**/playwright-report
 
-    # Upload du rapport final
-    - uses: actions/upload-artifact@v4
-      with:
-        name: playwright-report-final
-        path: playwright-report/
-        retention-days: 30
+      # 📤 Upload du rapport final fusionné
+      - uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-final
+          path: playwright-report/
+          retention-days: 30
